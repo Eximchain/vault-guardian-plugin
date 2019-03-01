@@ -30,7 +30,7 @@
   revision = "2e60448ffcc6bf78332d1fe590260095f554dd78"
 
 [[projects]]
-  digest = "1:8ca6a4e9e700dc305d3396e1e3bc0c10b0b086c422f88659c15df0ad9bc91a97"
+  digest = "1:87fa9f2d71fd2516e6c0d906b7eb58886c8b4fcc6ee8cada0553a0e50bfeef3a"
   name = "github.com/ethereum/go-ethereum"
   packages = [
     "common",
@@ -40,7 +40,7 @@
     "crypto/sha3",
     "rlp",
   ]
-  pruneopts = "UT"
+  pruneopts = "T"
   revision = "24d727b6d6e2c0cde222fa12155c4a6db5caaf2e"
   version = "v1.8.20"
 
