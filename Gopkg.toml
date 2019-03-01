@@ -30,10 +30,6 @@
   version = "1.8.2"
 
 [[constraint]]
-  branch = "master"
-  name = "github.com/eximchain/vault-guardian"
-
-[[constraint]]
   name = "github.com/hashicorp/vault"
   version = "1.0.3"
 

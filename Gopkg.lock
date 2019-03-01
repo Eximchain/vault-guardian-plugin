@@ -53,14 +53,6 @@
   version = "v1.8.2"
 
 [[projects]]
-  branch = "master"
-  digest = "1:9d8c0179408b76d4ecb79a2f1982e075971da1a4ae01cb683b2e03b9b37c607b"
-  name = "github.com/eximchain/vault-guardian"
-  packages = ["plugin/vault-guardian/guardian"]
-  pruneopts = "UT"
-  revision = "36a4cd13210198bd38efc3e89107cfb826668396"
-
-[[projects]]
   digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
   name = "github.com/go-yaml/yaml"
   packages = ["."]
@@ -173,15 +165,15 @@
   version = "v1.0.0"
 
 [[projects]]
-  digest = "1:d15ee511aa0f56baacc1eb4c6b922fa1c03b38413b6be18166b996d82a0156ea"
+  digest = "1:8ec8d88c248041a6df5f6574b87bc00e7e0b493881dad2e7ef47b11dc69093b5"
   name = "github.com/hashicorp/golang-lru"
   packages = [
     ".",
     "simplelru",
   ]
   pruneopts = "UT"
-  revision = "7087cb70de9f7a8bc0a10c375cb0d2280a8edf9c"
-  version = "v0.5.1"
+  revision = "20f1fb78b0740ba8c3cb143a61e86ba5c8669768"
+  version = "v0.5.0"
 
 [[projects]]
   branch = "master"
@@ -393,18 +385,16 @@
   revision = "4f5b463f9597cbe0dd13a6a2cd4f85e788d27508"
 
 [[projects]]
-  digest = "1:5b600bdd0f5f37f1cfb03d98b512414d8900263efb7e1c0f22297d4f118fb9ab"
+  digest = "1:6b155865b5e73d16adff506349d08e9e857cf48ea88a17dd1e5a6f8f8c738ba2"
   name = "google.golang.org/grpc"
   packages = [
     ".",
     "balancer",
     "balancer/base",
     "balancer/roundrobin",
-    "binarylog/grpc_binarylog_v1",
     "codes",
     "connectivity",
     "credentials",
-    "credentials/internal",
     "encoding",
     "encoding/proto",
     "grpclog",
@@ -412,12 +402,9 @@
     "health/grpc_health_v1",
     "internal",
     "internal/backoff",
-    "internal/binarylog",
     "internal/channelz",
     "internal/envconfig",
     "internal/grpcrand",
-    "internal/grpcsync",
-    "internal/syscall",
     "internal/transport",
     "keepalive",
     "metadata",
@@ -431,15 +418,13 @@
     "tap",
   ]
   pruneopts = "UT"
-  revision = "2fdaae294f38ed9a121193c51ec99fecd3b13eb7"
-  version = "v1.19.0"
+  revision = "1da8e51941b9a2c8f4bc3271acc30393c29e9cc0"
 
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
     "github.com/eximchain/go-ethereum/crypto",
-    "github.com/eximchain/vault-guardian/plugin/vault-guardian/guardian",
     "github.com/hashicorp/vault/api",
     "github.com/hashicorp/vault/helper/pluginutil",
     "github.com/hashicorp/vault/logical",
