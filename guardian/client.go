@@ -119,6 +119,10 @@ func (gc *Client) readKeyHexByEntityID(EntityID string) (privKeyHex string, err 
 	if usernameErr != nil {
 		return "", usernameErr
 	}
+	return gc.readKeyHexByUsername(username)
+}
+
+func (gc *Client) readKeyHexByUsername(username string) (privKeyHex string, err error) {
 	resp, err := gc.vault.Logical().Read(fmt.Sprintf("/keys/%s", username))
 	if err != nil {
 		return "", err

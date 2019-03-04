@@ -32,6 +32,11 @@ func Backend(c *logical.BackendConfig) *backend {
 					"okta_password": &framework.FieldSchema{
 						Type:        framework.TypeString,
 						Description: "Password for associated Okta account."},
+					"get_address": &framework.FieldSchema{
+						Type:        framework.TypeBool,
+						Description: "Include client's ethereum address on login.  Automatically included for first login.",
+						Default:     false,
+					},
 				},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
 					logical.UpdateOperation: b.pathLogin,
