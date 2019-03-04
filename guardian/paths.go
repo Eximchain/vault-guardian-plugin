@@ -143,7 +143,7 @@ func (b *backend) pathAuthorize(ctx context.Context, req *logical.Request, data 
 	}
 
 	return &logical.Response{
-		Data: map[string]interface{}{"newConfig": cfg},
+		Data: map[string]interface{}{"configUpdated": true},
 	}, nil
 }
 
