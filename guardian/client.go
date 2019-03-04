@@ -23,6 +23,7 @@ func ClientFromConfig(cfg *Config) (*Client, error) {
 
 	// Set up Vault client with default token
 	conf := api.DefaultConfig()
+	conf.Address = "https://127.0.0.1:8200"
 	client, err := api.NewClient(conf)
 	if err != nil {
 		return nil, err
