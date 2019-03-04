@@ -32,6 +32,7 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 	// Fetch login credentials
 	oktaUser := data.Get("okta_username").(string)
 	oktaPass := data.Get("okta_password").(string)
+	getAddress := data.Get("get_address").(bool)
 
 	cfg, err := b.Config(ctx, req.Storage)
 	if err != nil {
@@ -75,12 +76,23 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 	// single_sign_token := client.makeSingleSignToken(oktaUser)
 
 	var respData map[string]interface{}
-	if newUser {
+	if !newUser && !getAddress {
+		respData = map[string]interface{}{"client_token": clientToken}
+	} else {
+		if getAddress {
+			privKeyHex, fetchKeyErr := client.readKeyHexByUsername(oktaUser)
+			if fetchKeyErr != nil {
+				return cleanErrResp("Error fetching your key: ", fetchKeyErr), fetchKeyErr
+			}
+			var buildAddressErr error
+			pubAddress, buildAddressErr = AddressFromHexKey(privKeyHex)
+			if buildAddressErr != nil {
+				return cleanErrResp("Error building address from the private key: ", buildAddressErr), buildAddressErr
+			}
+		}
 		respData = map[string]interface{}{
 			"client_token": clientToken,
 			"address":      pubAddress}
-	} else {
-		respData = map[string]interface{}{"client_token": clientToken}
 	}
 	return &logical.Response{Data: respData}, nil
 }
@@ -131,7 +143,7 @@ func (b *backend) pathAuthorize(ctx context.Context, req *logical.Request, data 
 	}
 
 	return &logical.Response{
-		Data: map[string]interface{}{"newConfig": cfg},
+		Data: map[string]interface{}{"configUpdated": true},
 	}, nil
 }
 

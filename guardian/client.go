@@ -23,7 +23,6 @@ func ClientFromConfig(cfg *Config) (*Client, error) {
 
 	// Set up Vault client with default token
 	conf := api.DefaultConfig()
-	conf.Address = "https://127.0.0.1:8200"
 	client, err := api.NewClient(conf)
 	if err != nil {
 		return nil, err
@@ -119,6 +118,10 @@ func (gc *Client) readKeyHexByEntityID(EntityID string) (privKeyHex string, err 
 	if usernameErr != nil {
 		return "", usernameErr
 	}
+	return gc.readKeyHexByUsername(username)
+}
+
+func (gc *Client) readKeyHexByUsername(username string) (privKeyHex string, err error) {
 	resp, err := gc.vault.Logical().Read(fmt.Sprintf("/keys/%s", username))
 	if err != nil {
 		return "", err
