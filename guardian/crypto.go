@@ -1,8 +1,12 @@
 package guardian
 
 import (
+	"bytes"
 	"encoding/hex"
+	"math/big"
 
+	"github.com/eximchain/go-ethereum/common"
+	"github.com/eximchain/go-ethereum/core/types"
 	"github.com/eximchain/go-ethereum/crypto"
 )
 
@@ -29,6 +33,30 @@ func SignWithHexKey(hash []byte, privKeyHex string) (sig []byte, err error) {
 		return nil, signErr
 	}
 	return sig, nil
+}
+
+// SignTxWithHexKey : Accepts arguments to NewTransaction (albeit in a different order), returns a signed RLP-encoded transaction string
+func SignTxWithHexKey(privKeyHex, data string, to common.Address, nonce, gasLimit uint64, amount, gasPrice *big.Int) (rlpTx string, err error) {
+	signer := types.NewEIP155Signer(big.NewInt(1))
+	dataBytes, decodeErr := hex.DecodeString(data)
+	if decodeErr != nil {
+		return "", decodeErr
+	}
+	tx := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, dataBytes)
+	privKey, loadErr := crypto.HexToECDSA(privKeyHex)
+	if loadErr != nil {
+		return "", loadErr
+	}
+
+	signedTx, signErr := types.SignTx(tx, signer, privKey)
+	if signErr != nil {
+		return "", signErr
+	}
+	rlpBuffer := new(bytes.Buffer)
+	if rlpErr := signedTx.EncodeRLP(rlpBuffer); rlpErr != nil {
+		return "", rlpErr
+	}
+	return rlpBuffer.String(), nil
 }
 
 // AddressFromHexKey : Given a private key as a hex string, return its corresponding hex address

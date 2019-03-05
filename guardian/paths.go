@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 
+	"github.com/eximchain/go-ethereum/common"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
@@ -147,6 +149,28 @@ func (b *backend) pathAuthorize(ctx context.Context, req *logical.Request, data 
 	}, nil
 }
 
+func (b *backend) pathGetAddress(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	cfg, loadCfgErr := b.Config(ctx, req.Storage)
+	if loadCfgErr != nil {
+		return readConfigErrResp(loadCfgErr), loadCfgErr
+	}
+	client, makeClientErr := cfg.Client()
+	if makeClientErr != nil {
+		return makeClientErrResp(makeClientErr), makeClientErr
+	}
+	privKeyHex, readKeyErr := client.readKeyHexByEntityID(req.EntityID)
+	if readKeyErr != nil {
+		return keyFromTokenErrResp(readKeyErr), readKeyErr
+	}
+	pubAddress, getAddressErr := AddressFromHexKey(privKeyHex)
+	if getAddressErr != nil {
+		return logical.ErrorResponse("Fail to derive address from private key: " + getAddressErr.Error()), getAddressErr
+	}
+	return &logical.Response{
+		Data: map[string]interface{}{"public_address": pubAddress},
+	}, nil
+}
+
 func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	rawDataStr := data.Get("raw_data")
 
@@ -178,24 +202,60 @@ func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *fram
 	}, nil
 }
 
-func (b *backend) pathGetAddress(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+func (b *backend) pathSignTx(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	// Prepare args and return string
+	var signedTx string
+
+	// Fetch arguments, validate required ones, nil out ones which don't need to be there
+	nonce, hasNonce := data.GetOk("nonce")
+	to, hasTo := data.GetOk("to")
+	gasLimit, hasGasLimit := data.GetOk("gas_limit")
+	if !hasNonce || !hasTo || !hasGasLimit {
+		return cleanErrResp("Missing required information; please at least supply values for `to`, `nonce`, and `gas_limit`.", nil), nil
+	}
+
+	gasPrice, hasGasPrice := data.GetOk("gas_price")
+	amount, hasAmount := data.GetOk("amount")
+	if !hasGasPrice {
+		gasPrice = nil
+	}
+	if !hasAmount {
+		amount = nil
+	}
+
+	txData := data.Get("data")
+
+	// Load config, prepare client, get their private key in hex
 	cfg, loadCfgErr := b.Config(ctx, req.Storage)
 	if loadCfgErr != nil {
 		return readConfigErrResp(loadCfgErr), loadCfgErr
 	}
+
 	client, makeClientErr := cfg.Client()
 	if makeClientErr != nil {
 		return makeClientErrResp(makeClientErr), makeClientErr
 	}
+
 	privKeyHex, readKeyErr := client.readKeyHexByEntityID(req.EntityID)
 	if readKeyErr != nil {
 		return keyFromTokenErrResp(readKeyErr), readKeyErr
 	}
-	pubAddress, getAddressErr := AddressFromHexKey(privKeyHex)
-	if getAddressErr != nil {
-		return logical.ErrorResponse("Fail to derive address from private key: " + getAddressErr.Error()), getAddressErr
+
+	var signErr error
+	signedTx, signErr = SignTxWithHexKey(
+		privKeyHex,
+		txData.(string),
+		to.(common.Address),
+		nonce.(uint64),
+		gasLimit.(uint64),
+		amount.(*big.Int),
+		gasPrice.(*big.Int),
+	)
+	if signErr != nil {
+		return cleanErrResp("Unable to build and sign transaction: ", signErr), signErr
 	}
+
 	return &logical.Response{
-		Data: map[string]interface{}{"public_address": pubAddress},
+		Data: map[string]interface{}{"signedTx": signedTx},
 	}, nil
 }

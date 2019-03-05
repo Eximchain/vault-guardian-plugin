@@ -43,6 +43,27 @@ func Backend(c *logical.BackendConfig) *backend {
 				},
 			},
 			&framework.Path{
+				Pattern: "authorize",
+				Fields: map[string]*framework.FieldSchema{
+					"secret_id": &framework.FieldSchema{
+						Type:        framework.TypeString,
+						Description: "SecretID of the Guardian AppRole.",
+					},
+					"okta_url": &framework.FieldSchema{
+						Type:        framework.TypeString,
+						Description: "Organization's Okta URL.",
+					},
+					"okta_token": &framework.FieldSchema{
+						Type:        framework.TypeString,
+						Description: "Permissioned API token from Okta organization.",
+					},
+				},
+				Callbacks: map[logical.Operation]framework.OperationFunc{
+					logical.CreateOperation: b.pathAuthorize,
+					logical.UpdateOperation: b.pathAuthorize,
+				},
+			},
+			&framework.Path{
 				Pattern: "sign",
 				Fields: map[string]*framework.FieldSchema{
 					"raw_data": &framework.FieldSchema{
@@ -62,24 +83,46 @@ func Backend(c *logical.BackendConfig) *backend {
 				},
 			},
 			&framework.Path{
-				Pattern: "authorize",
+				Pattern: "signTx",
 				Fields: map[string]*framework.FieldSchema{
-					"secret_id": &framework.FieldSchema{
-						Type:        framework.TypeString,
-						Description: "SecretID of the Guardian AppRole.",
+					"nonce": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "TxParam: nonce is an unsigned 64-bit integer",
+						Default:     0,
 					},
-					"okta_url": &framework.FieldSchema{
+					"to": &framework.FieldSchema{
 						Type:        framework.TypeString,
-						Description: "Organization's Okta URL.",
+						Description: "TxParam: to should be an address, beginning with 0x.",
 					},
-					"okta_token": &framework.FieldSchema{
+					"amount": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "TxParam: if this tx transfers value, amount should be an integer >= 0.",
+						Default:     0,
+					},
+					"gas_limit": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "TxParam: gas_limit should be an unsigned 64-bit integer",
+						Default:     -1,
+					},
+					"gas_price": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "TxParam: gas_price should be a positive integer.",
+						Default:     -1,
+					},
+					"data": &framework.FieldSchema{
 						Type:        framework.TypeString,
-						Description: "Permissioned API token from Okta organization.",
+						Description: "TxParam: data should be a hex string.",
+					},
+					"address_index": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "Integer index of which generated address to use.",
+						Default:     0,
 					},
 				},
 				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.CreateOperation: b.pathAuthorize,
-					logical.UpdateOperation: b.pathAuthorize,
+					logical.CreateOperation: b.pathSignTx,
+					logical.UpdateOperation: b.pathSignTx,
+					logical.ReadOperation:   b.pathGetAddress,
 				},
 			},
 		}),
