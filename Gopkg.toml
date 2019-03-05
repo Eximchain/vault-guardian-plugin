@@ -27,7 +27,7 @@
 
 [[constraint]]
   name = "github.com/eximchain/go-ethereum"
-  version = "1.8.2"
+  version = "exim-v1.0.2"
 
 [[constraint]]
   name = "github.com/hashicorp/vault"
@@ -42,5 +42,5 @@
   unused-packages = true
 
   [[prune.project]]
-      name = "github.com/ethereum/go-ethereum"
+      name = "github.com/eximchain/go-ethereum"
       unused-packages = false
