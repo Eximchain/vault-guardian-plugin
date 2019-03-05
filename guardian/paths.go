@@ -27,7 +27,7 @@ func makeClientErrResp(err error) *logical.Response {
 }
 
 func keyFromTokenErrResp(err error) *logical.Response {
-	return cleanErrResp("Failed to load key from token: ", err)
+	return cleanErrResp("Failed to load key from token accessor: ", err)
 }
 
 func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
@@ -68,18 +68,21 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 		}
 	}
 
-	// Perform the actual login call, get client_token
-	clientToken, loginErr := client.loginEnduser(oktaUser, oktaPass)
+	// Perform the actual login call to verify identity, but we don't
+	// actually need to response.  If it works, then we're good.
+	_, loginErr := client.loginEnduser(oktaUser, oktaPass)
 	if loginErr != nil {
 		return cleanErrResp("Unable to login with Okta with the provided credentials:", loginErr), loginErr
 	}
 
-	// This method is prototyped, commenting out while we get core flow working
-	// single_sign_token := client.makeSingleSignToken(oktaUser)
+	singleToken, singleTokenErr := client.makeSingleSignToken(oktaUser)
+	if singleTokenErr != nil {
+		return cleanErrResp("Error building single-sign token: ", singleTokenErr), singleTokenErr
+	}
 
 	var respData map[string]interface{}
 	if !newUser && !getAddress {
-		respData = map[string]interface{}{"client_token": clientToken}
+		respData = map[string]interface{}{"client_token": singleToken}
 	} else {
 		if getAddress {
 			privKeyHex, fetchKeyErr := client.readKeyHexByUsername(oktaUser)
@@ -93,8 +96,9 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 			}
 		}
 		respData = map[string]interface{}{
-			"client_token": clientToken,
-			"address":      pubAddress}
+			"client_token": singleToken,
+			"address":      pubAddress,
+		}
 	}
 	return &logical.Response{Data: respData}, nil
 }
@@ -188,7 +192,7 @@ func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *fram
 		return makeClientErrResp(makeClientErr), makeClientErr
 	}
 
-	privKeyHex, readKeyErr := client.readKeyHexByEntityID(req.EntityID)
+	privKeyHex, readKeyErr := client.readKeyHexByTokenAccessor(req.ClientTokenAccessor)
 	if readKeyErr != nil {
 		return keyFromTokenErrResp(readKeyErr), readKeyErr
 	}
@@ -197,8 +201,17 @@ func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *fram
 		return logical.ErrorResponse("Failed to unmarshall key & sign: " + err.Error()), err
 	}
 	sigHex := hex.EncodeToString(sigBytes)
+
+	freshToken, freshTokenErr := client.makeFreshToken(req.ClientTokenAccessor)
+	if freshTokenErr != nil {
+		return cleanErrResp("Unable to create a fresh_client_token after signing: ", freshTokenErr), freshTokenErr
+	}
+
 	return &logical.Response{
-		Data: map[string]interface{}{"signature": "0x" + sigHex},
+		Data: map[string]interface{}{
+			"signature":          "0x" + sigHex,
+			"fresh_client_token": freshToken,
+		},
 	}, nil
 }
 
@@ -235,8 +248,7 @@ func (b *backend) pathSignTx(ctx context.Context, req *logical.Request, data *fr
 	if makeClientErr != nil {
 		return makeClientErrResp(makeClientErr), makeClientErr
 	}
-
-	privKeyHex, readKeyErr := client.readKeyHexByEntityID(req.EntityID)
+	privKeyHex, readKeyErr := client.readKeyHexByTokenAccessor(req.ClientTokenAccessor)
 	if readKeyErr != nil {
 		return keyFromTokenErrResp(readKeyErr), readKeyErr
 	}
@@ -255,7 +267,15 @@ func (b *backend) pathSignTx(ctx context.Context, req *logical.Request, data *fr
 		return cleanErrResp("Unable to build and sign transaction: ", signErr), signErr
 	}
 
+	freshToken, freshTokenErr := client.makeFreshToken(req.ClientTokenAccessor)
+	if freshTokenErr != nil {
+		return cleanErrResp("Unable to create a fresh_client_token after signing: ", freshTokenErr), freshTokenErr
+	}
+
 	return &logical.Response{
-		Data: map[string]interface{}{"signedTx": signedTx},
+		Data: map[string]interface{}{
+			"signedTx":           signedTx,
+			"fresh_client_token": freshToken,
+		},
 	}, nil
 }
