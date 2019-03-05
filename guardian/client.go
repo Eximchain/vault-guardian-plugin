@@ -1,6 +1,7 @@
 package guardian
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/hashicorp/vault/api"
@@ -23,7 +24,6 @@ func ClientFromConfig(cfg *Config) (*Client, error) {
 
 	// Set up Vault client with default token
 	conf := api.DefaultConfig()
-	conf.Address = "https://127.0.0.1:8200"
 	client, err := api.NewClient(conf)
 	if err != nil {
 		return nil, err
@@ -114,16 +114,42 @@ func (gc *Client) usernameFromEntityID(EntityID string) (username string, err er
 	return alias["name"].(string), nil
 }
 
-func (gc *Client) readKeyHexByEntityID(EntityID string) (privKeyHex string, err error) {
-	username, usernameErr := gc.usernameFromEntityID(EntityID)
-	if usernameErr != nil {
-		return "", usernameErr
+func (gc *Client) usernameFromTokenAccessor(accessor string) (username string, err error) {
+	resp, err := gc.vault.Logical().Write("/auth/token/lookup-accessor", map[string]interface{}{
+		"accessor": accessor,
+	})
+	if err != nil {
+		return "", err
 	}
+	if resp.Data["meta"] == nil {
+		return "", errors.New("Provided client_token does not have any attached metadata, could not find user")
+	}
+	meta := resp.Data["meta"].(map[string]interface{})
+	return meta["name"].(string), nil
+}
+
+func (gc *Client) readKeyHexByUsername(username string) (privKeyHex string, err error) {
 	resp, err := gc.vault.Logical().Read(fmt.Sprintf("/keys/%s", username))
 	if err != nil {
 		return "", err
 	}
 	return resp.Data["privKeyHex"].(string), nil
+}
+
+func (gc *Client) readKeyHexByEntityID(EntityID string) (privKeyHex string, err error) {
+	username, usernameErr := gc.usernameFromEntityID(EntityID)
+	if usernameErr != nil {
+		return "", usernameErr
+	}
+	return gc.readKeyHexByUsername(username)
+}
+
+func (gc *Client) readKeyHexByTokenAccessor(accessor string) (privKeyHex string, err error) {
+	username, usernameErr := gc.usernameFromTokenAccessor(accessor)
+	if usernameErr != nil {
+		return "", usernameErr
+	}
+	return gc.readKeyHexByUsername(username)
 }
 
 //-----------------------------------------
@@ -149,12 +175,20 @@ func (gc *Client) makeSingleSignToken(username string) (clientToken string, err 
 	tokenArg := map[string]interface{}{
 		"policies": []string{"enduser"},
 		"num_uses": 1,
-		"metadata": map[string]string{"username": username}}
+		"meta":     map[string]string{"name": username}}
 	tokenResp, err := gc.vault.Logical().Write("/auth/token/create/guardian-enduser", tokenArg)
 	if err != nil {
 		return "", err
 	}
 	return tokenResp.Auth.ClientToken, nil
+}
+
+func (gc *Client) makeFreshToken(oldAccessor string) (clientToken string, err error) {
+	username, usernameErr := gc.usernameFromTokenAccessor(oldAccessor)
+	if usernameErr != nil {
+		return "", usernameErr
+	}
+	return gc.makeSingleSignToken(username)
 }
 
 //-----------------------------------------

@@ -25,13 +25,14 @@ func makeClientErrResp(err error) *logical.Response {
 }
 
 func keyFromTokenErrResp(err error) *logical.Response {
-	return cleanErrResp("Failed to load key from token: ", err)
+	return cleanErrResp("Failed to load key from token accessor: ", err)
 }
 
 func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
 	// Fetch login credentials
 	oktaUser := data.Get("okta_username").(string)
 	oktaPass := data.Get("okta_password").(string)
+	getAddress := data.Get("get_address").(bool)
 
 	cfg, err := b.Config(ctx, req.Storage)
 	if err != nil {
@@ -65,22 +66,37 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 		}
 	}
 
-	// Perform the actual login call, get client_token
-	clientToken, loginErr := client.loginEnduser(oktaUser, oktaPass)
+	// Perform the actual login call to verify identity, but we don't
+	// actually need to response.  If it works, then we're good.
+	_, loginErr := client.loginEnduser(oktaUser, oktaPass)
 	if loginErr != nil {
 		return cleanErrResp("Unable to login with Okta with the provided credentials:", loginErr), loginErr
 	}
 
-	// This method is prototyped, commenting out while we get core flow working
-	// single_sign_token := client.makeSingleSignToken(oktaUser)
+	singleToken, singleTokenErr := client.makeSingleSignToken(oktaUser)
+	if singleTokenErr != nil {
+		return cleanErrResp("Error building single-sign token: ", singleTokenErr), singleTokenErr
+	}
 
 	var respData map[string]interface{}
-	if newUser {
-		respData = map[string]interface{}{
-			"client_token": clientToken,
-			"address":      pubAddress}
+	if !newUser && !getAddress {
+		respData = map[string]interface{}{"client_token": singleToken}
 	} else {
-		respData = map[string]interface{}{"client_token": clientToken}
+		if getAddress {
+			privKeyHex, fetchKeyErr := client.readKeyHexByUsername(oktaUser)
+			if fetchKeyErr != nil {
+				return cleanErrResp("Error fetching your key: ", fetchKeyErr), fetchKeyErr
+			}
+			var buildAddressErr error
+			pubAddress, buildAddressErr = AddressFromHexKey(privKeyHex)
+			if buildAddressErr != nil {
+				return cleanErrResp("Error building address from the private key: ", buildAddressErr), buildAddressErr
+			}
+		}
+		respData = map[string]interface{}{
+			"client_token": singleToken,
+			"address":      pubAddress,
+		}
 	}
 	return &logical.Response{Data: respData}, nil
 }
@@ -131,7 +147,7 @@ func (b *backend) pathAuthorize(ctx context.Context, req *logical.Request, data 
 	}
 
 	return &logical.Response{
-		Data: map[string]interface{}{"newConfig": cfg},
+		Data: map[string]interface{}{"configUpdated": true},
 	}, nil
 }
 
@@ -152,7 +168,7 @@ func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *fram
 		return makeClientErrResp(makeClientErr), makeClientErr
 	}
 
-	privKeyHex, readKeyErr := client.readKeyHexByEntityID(req.EntityID)
+	privKeyHex, readKeyErr := client.readKeyHexByTokenAccessor(req.ClientTokenAccessor)
 	if readKeyErr != nil {
 		return keyFromTokenErrResp(readKeyErr), readKeyErr
 	}
@@ -161,8 +177,15 @@ func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *fram
 		return logical.ErrorResponse("Failed to unmarshall key & sign: " + err.Error()), err
 	}
 	sigHex := hex.EncodeToString(sigBytes)
+	freshToken, freshTokenErr := client.makeFreshToken(req.ClientTokenAccessor)
+	if freshTokenErr != nil {
+		return cleanErrResp("Unable to create a fresh_client_token after signing: ", freshTokenErr), freshTokenErr
+	}
 	return &logical.Response{
-		Data: map[string]interface{}{"signature": "0x" + sigHex},
+		Data: map[string]interface{}{
+			"signature":          "0x" + sigHex,
+			"fresh_client_token": freshToken,
+		},
 	}, nil
 }
 
@@ -175,7 +198,7 @@ func (b *backend) pathGetAddress(ctx context.Context, req *logical.Request, data
 	if makeClientErr != nil {
 		return makeClientErrResp(makeClientErr), makeClientErr
 	}
-	privKeyHex, readKeyErr := client.readKeyHexByEntityID(req.EntityID)
+	privKeyHex, readKeyErr := client.readKeyHexByTokenAccessor(req.ClientTokenAccessor)
 	if readKeyErr != nil {
 		return keyFromTokenErrResp(readKeyErr), readKeyErr
 	}
