@@ -1,3 +1,4 @@
 policies/
 build/
 setup-guardian.sh
+vault

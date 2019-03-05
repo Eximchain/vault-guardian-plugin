@@ -229,13 +229,20 @@ func (b *backend) pathSignTx(ctx context.Context, req *logical.Request, data *fr
 
 	gasPrice, hasGasPrice := data.GetOk("gas_price")
 	amount, hasAmount := data.GetOk("amount")
+	var gasPriceValue *big.Int
+	var amountValue *big.Int
 	if !hasGasPrice {
-		gasPrice = nil
+		gasPriceValue = nil
+	} else {
+		gasPriceValue = big.NewInt(int64(gasPrice.(int)))
 	}
 	if !hasAmount {
-		amount = nil
+		amountValue = nil
+	} else {
+		amountValue = big.NewInt(int64(amount.(int)))
 	}
 
+	chainID := data.Get("chain_id")
 	txData := data.Get("data")
 
 	// Load config, prepare client, get their private key in hex
@@ -255,13 +262,14 @@ func (b *backend) pathSignTx(ctx context.Context, req *logical.Request, data *fr
 
 	var signErr error
 	signedTx, signErr = SignTxWithHexKey(
+		chainID.(int),
 		privKeyHex,
 		txData.(string),
-		to.(common.Address),
-		nonce.(uint64),
-		gasLimit.(uint64),
-		amount.(*big.Int),
-		gasPrice.(*big.Int),
+		common.HexToAddress(to.(string)),
+		uint64(nonce.(int)),
+		uint64(gasLimit.(int)),
+		amountValue,
+		gasPriceValue,
 	)
 	if signErr != nil {
 		return cleanErrResp("Unable to build and sign transaction: ", signErr), signErr

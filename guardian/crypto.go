@@ -1,7 +1,6 @@
 package guardian
 
 import (
-	"bytes"
 	"encoding/hex"
 	"math/big"
 
@@ -36,8 +35,8 @@ func SignWithHexKey(hash []byte, privKeyHex string) (sig []byte, err error) {
 }
 
 // SignTxWithHexKey : Accepts arguments to NewTransaction (albeit in a different order), returns a signed RLP-encoded transaction string
-func SignTxWithHexKey(privKeyHex, data string, to common.Address, nonce, gasLimit uint64, amount, gasPrice *big.Int) (rlpTx string, err error) {
-	signer := types.NewEIP155Signer(big.NewInt(1))
+func SignTxWithHexKey(chainID int, privKeyHex, data string, to common.Address, nonce, gasLimit uint64, amount, gasPrice *big.Int) (rlpTx string, err error) {
+	signer := types.NewEIP155Signer(big.NewInt(int64(chainID)))
 	dataBytes, decodeErr := hex.DecodeString(data)
 	if decodeErr != nil {
 		return "", decodeErr
@@ -52,11 +51,11 @@ func SignTxWithHexKey(privKeyHex, data string, to common.Address, nonce, gasLimi
 	if signErr != nil {
 		return "", signErr
 	}
-	rlpBuffer := new(bytes.Buffer)
-	if rlpErr := signedTx.EncodeRLP(rlpBuffer); rlpErr != nil {
-		return "", rlpErr
+	txJSON, jsonErr := signedTx.MarshalJSON()
+	if jsonErr != nil {
+		return "", jsonErr
 	}
-	return rlpBuffer.String(), nil
+	return string(txJSON), nil
 }
 
 // AddressFromHexKey : Given a private key as a hex string, return its corresponding hex address

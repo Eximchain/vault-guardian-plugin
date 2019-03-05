@@ -83,12 +83,11 @@ func Backend(c *logical.BackendConfig) *backend {
 				},
 			},
 			&framework.Path{
-				Pattern: "signTx",
+				Pattern: "sign-tx",
 				Fields: map[string]*framework.FieldSchema{
 					"nonce": &framework.FieldSchema{
 						Type:        framework.TypeInt,
 						Description: "TxParam: nonce is an unsigned 64-bit integer",
-						Default:     0,
 					},
 					"to": &framework.FieldSchema{
 						Type:        framework.TypeString,
@@ -96,22 +95,25 @@ func Backend(c *logical.BackendConfig) *backend {
 					},
 					"amount": &framework.FieldSchema{
 						Type:        framework.TypeInt,
-						Description: "TxParam: if this tx transfers value, amount should be an integer >= 0.",
+						Description: "TxParam: if this tx transfers value, amount should be an integer >= 0.  Unit is wei.",
 						Default:     0,
 					},
 					"gas_limit": &framework.FieldSchema{
 						Type:        framework.TypeInt,
 						Description: "TxParam: gas_limit should be an unsigned 64-bit integer",
-						Default:     -1,
 					},
 					"gas_price": &framework.FieldSchema{
 						Type:        framework.TypeInt,
 						Description: "TxParam: gas_price should be a positive integer.",
-						Default:     -1,
 					},
 					"data": &framework.FieldSchema{
 						Type:        framework.TypeString,
 						Description: "TxParam: data should be a hex string.",
+					},
+					"chain_id": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "Positive integer chainID for your desired network.",
+						Default:     1,
 					},
 					"address_index": &framework.FieldSchema{
 						Type:        framework.TypeInt,

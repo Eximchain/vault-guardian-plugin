@@ -37,14 +37,28 @@
     "common",
     "common/hexutil",
     "common/math",
+    "core/types",
     "crypto",
     "crypto/secp256k1",
     "crypto/sha3",
+    "ethdb",
+    "log",
+    "metrics",
+    "params",
     "rlp",
+    "trie",
   ]
   pruneopts = "T"
   revision = "6f6599e0cc4842b159ee7f9415bb6935ebaf633b"
   version = "exim-v1.0.2"
+
+[[projects]]
+  digest = "1:586ea76dbd0374d6fb649a91d70d652b7fe0ccffb8910a77468e7702e7901f3d"
+  name = "github.com/go-stack/stack"
+  packages = ["."]
+  pruneopts = "UT"
+  revision = "2fee6af1a9795aafbe0253a0cfbdf668e1fb8a9a"
+  version = "v1.8.0"
 
 [[projects]]
   digest = "1:4d2e5a73dc1500038e504a8d78b986630e3626dc027bc030ba5c75da257cdb96"
@@ -318,6 +332,27 @@
   version = "v1.0.0"
 
 [[projects]]
+  digest = "1:5b180f17d5bc50b765f4dcf0d126c72979531cbbd7f7929bf3edd87fb801ea2d"
+  name = "github.com/syndtr/goleveldb"
+  packages = [
+    "leveldb",
+    "leveldb/cache",
+    "leveldb/comparer",
+    "leveldb/errors",
+    "leveldb/filter",
+    "leveldb/iterator",
+    "leveldb/journal",
+    "leveldb/memdb",
+    "leveldb/opt",
+    "leveldb/storage",
+    "leveldb/table",
+    "leveldb/util",
+  ]
+  pruneopts = "UT"
+  revision = "9d007e481048296f09f59bd19bb7ae584563cd95"
+  version = "v1.0.0"
+
+[[projects]]
   branch = "master"
   digest = "1:d389c020471d11eb47040a0e34c177c4378710b4381a99f1e92c810fb6368989"
   name = "golang.org/x/crypto"
@@ -433,10 +468,20 @@
   revision = "2fdaae294f38ed9a121193c51ec99fecd3b13eb7"
   version = "v1.19.0"
 
+[[projects]]
+  branch = "v2"
+  digest = "1:0a2f4b974a413866afa1b41130d756643841fb9ad661b81c9a6dd9f1364ed19f"
+  name = "gopkg.in/karalabe/cookiejar.v2"
+  packages = ["collections/prque"]
+  pruneopts = "UT"
+  revision = "8dcd6a7f4951f6ff3ee9cbb919a06d8925822e57"
+
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/eximchain/go-ethereum/common",
+    "github.com/eximchain/go-ethereum/core/types",
     "github.com/eximchain/go-ethereum/crypto",
     "github.com/hashicorp/vault/api",
     "github.com/hashicorp/vault/helper/pluginutil",
