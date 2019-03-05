@@ -66,14 +66,13 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 		}
 	}
 
-	// Perform the actual login call to verify identity, but don't
-	// actually need it client token
+	// Perform the actual login call to verify identity, but we don't
+	// actually need to response.  If it works, then we're good.
 	_, loginErr := client.loginEnduser(oktaUser, oktaPass)
 	if loginErr != nil {
 		return cleanErrResp("Unable to login with Okta with the provided credentials:", loginErr), loginErr
 	}
 
-	// This method is prototyped, commenting out while we get core flow working
 	singleToken, singleTokenErr := client.makeSingleSignToken(oktaUser)
 	if singleTokenErr != nil {
 		return cleanErrResp("Error building single-sign token: ", singleTokenErr), singleTokenErr
