@@ -3,7 +3,6 @@ package guardian
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
 	"math/big"
 
 	"github.com/eximchain/go-ethereum/common"
@@ -36,19 +35,15 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 	oktaPass := data.Get("okta_password").(string)
 	getAddress := data.Get("get_address").(bool)
 
-	cfg, err := b.Config(ctx, req.Storage)
-	if err != nil {
-		return readConfigErrResp(err), err
-	}
-	client, err := cfg.Client()
-	if err != nil {
-		return makeClientErrResp(err), err
+	client, buildClientErr := ClientFromContext(b, ctx, req)
+	if buildClientErr != nil {
+		return cleanErrResp("Error building client: ", buildClientErr), buildClientErr
 	}
 
 	// Do we have an account for them?
 	newUser, checkErr := client.isNewUser(oktaUser)
 	if checkErr != nil {
-		return cleanErrResp(fmt.Sprintf("User check failed, here's conf: %#v", cfg), checkErr), checkErr
+		return cleanErrResp("Failed to check whether user has registered before: ", checkErr), checkErr
 	}
 	pubAddress := ""
 	if newUser {
@@ -154,14 +149,11 @@ func (b *backend) pathAuthorize(ctx context.Context, req *logical.Request, data 
 }
 
 func (b *backend) pathGetAddress(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	cfg, loadCfgErr := b.Config(ctx, req.Storage)
-	if loadCfgErr != nil {
-		return readConfigErrResp(loadCfgErr), loadCfgErr
+	client, buildClientErr := ClientFromContext(b, ctx, req)
+	if buildClientErr != nil {
+		return cleanErrResp("Error building client: ", buildClientErr), buildClientErr
 	}
-	client, makeClientErr := cfg.Client()
-	if makeClientErr != nil {
-		return makeClientErrResp(makeClientErr), makeClientErr
-	}
+
 	privKeyHex, readKeyErr := client.readKeyHexByEntityID(req.EntityID)
 	if readKeyErr != nil {
 		return keyFromTokenErrResp(readKeyErr), readKeyErr
@@ -183,13 +175,9 @@ func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *fram
 		return logical.ErrorResponse("Unable to decode raw_data string from hex to bytes: " + decodeErr.Error()), decodeErr
 	}
 
-	cfg, loadCfgErr := b.Config(ctx, req.Storage)
-	if loadCfgErr != nil {
-		return readConfigErrResp(loadCfgErr), loadCfgErr
-	}
-	client, makeClientErr := cfg.Client()
-	if makeClientErr != nil {
-		return makeClientErrResp(makeClientErr), makeClientErr
+	client, buildClientErr := ClientFromContext(b, ctx, req)
+	if buildClientErr != nil {
+		return cleanErrResp("Error building client: ", buildClientErr), buildClientErr
 	}
 
 	privKeyHex, readKeyErr := client.readKeyHexByTokenAccessor(req.ClientTokenAccessor)
@@ -245,23 +233,20 @@ func (b *backend) pathSignTx(ctx context.Context, req *logical.Request, data *fr
 	chainID := data.Get("chain_id")
 	txData := data.Get("data")
 
-	// Load config, prepare client, get their private key in hex
-	cfg, loadCfgErr := b.Config(ctx, req.Storage)
-	if loadCfgErr != nil {
-		return readConfigErrResp(loadCfgErr), loadCfgErr
+	// Build a client to get their private key in hex
+	client, buildClientErr := ClientFromContext(b, ctx, req)
+	if buildClientErr != nil {
+		return cleanErrResp("Error building client: ", buildClientErr), buildClientErr
 	}
 
-	client, makeClientErr := cfg.Client()
-	if makeClientErr != nil {
-		return makeClientErrResp(makeClientErr), makeClientErr
-	}
 	privKeyHex, readKeyErr := client.readKeyHexByTokenAccessor(req.ClientTokenAccessor)
 	if readKeyErr != nil {
 		return keyFromTokenErrResp(readKeyErr), readKeyErr
 	}
 
 	var signErr error
-	signedTx, signErr = SignTxWithHexKey(
+	var signedRLP string
+	signedTx, signedRLP, signErr = SignTxWithHexKey(
 		chainID.(int),
 		privKeyHex,
 		txData.(string),
@@ -282,7 +267,8 @@ func (b *backend) pathSignTx(ctx context.Context, req *logical.Request, data *fr
 
 	return &logical.Response{
 		Data: map[string]interface{}{
-			"signedTx":           signedTx,
+			"signed_tx_json":     signedTx,
+			"signed_tx_rlp":      signedRLP,
 			"fresh_client_token": freshToken,
 		},
 	}, nil

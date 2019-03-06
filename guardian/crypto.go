@@ -35,27 +35,31 @@ func SignWithHexKey(hash []byte, privKeyHex string) (sig []byte, err error) {
 }
 
 // SignTxWithHexKey : Accepts arguments to NewTransaction (albeit in a different order), returns a signed RLP-encoded transaction string
-func SignTxWithHexKey(chainID int, privKeyHex, data string, to common.Address, nonce, gasLimit uint64, amount, gasPrice *big.Int) (rlpTx string, err error) {
+func SignTxWithHexKey(chainID int, privKeyHex, data string, to common.Address, nonce, gasLimit uint64, amount, gasPrice *big.Int) (jsonTx, rlpTx string, err error) {
 	signer := types.NewEIP155Signer(big.NewInt(int64(chainID)))
 	dataBytes, decodeErr := hex.DecodeString(data)
 	if decodeErr != nil {
-		return "", decodeErr
+		return "", "", decodeErr
 	}
 	tx := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, dataBytes)
 	privKey, loadErr := crypto.HexToECDSA(privKeyHex)
 	if loadErr != nil {
-		return "", loadErr
+		return "", "", loadErr
 	}
 
 	signedTx, signErr := types.SignTx(tx, signer, privKey)
 	if signErr != nil {
-		return "", signErr
+		return "", "", signErr
 	}
+
 	txJSON, jsonErr := signedTx.MarshalJSON()
 	if jsonErr != nil {
-		return "", jsonErr
+		return "", "", jsonErr
 	}
-	return string(txJSON), nil
+
+	rawTxBytes := types.Transactions{signedTx}.GetRlp(0)
+
+	return string(txJSON), "0x" + hex.EncodeToString(rawTxBytes), nil
 }
 
 // AddressFromHexKey : Given a private key as a hex string, return its corresponding hex address
