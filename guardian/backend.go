@@ -108,7 +108,7 @@ func Backend(c *logical.BackendConfig) *backend {
 					},
 					"data": &framework.FieldSchema{
 						Type:        framework.TypeString,
-						Description: "TxParam: data should be a hex string.",
+						Description: "TxParam: data should either be a hex string (without 0x) or not specified.",
 					},
 					"chain_id": &framework.FieldSchema{
 						Type:        framework.TypeInt,
