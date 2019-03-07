@@ -68,7 +68,7 @@ func Backend(c *logical.BackendConfig) *backend {
 				Fields: map[string]*framework.FieldSchema{
 					"raw_data": &framework.FieldSchema{
 						Type:        framework.TypeString,
-						Description: "Raw hashed transaction data to sign, do not include the initial 0x.",
+						Description: "Raw hashed transaction data to sign, 0x is optional.",
 					},
 					"address_index": &framework.FieldSchema{
 						Type:        framework.TypeInt,
@@ -91,7 +91,7 @@ func Backend(c *logical.BackendConfig) *backend {
 					},
 					"to": &framework.FieldSchema{
 						Type:        framework.TypeString,
-						Description: "TxParam: to should be an address, beginning with 0x.",
+						Description: "TxParam: to should be an address, must begin with 0x.",
 					},
 					"amount": &framework.FieldSchema{
 						Type:        framework.TypeInt,
@@ -108,7 +108,7 @@ func Backend(c *logical.BackendConfig) *backend {
 					},
 					"data": &framework.FieldSchema{
 						Type:        framework.TypeString,
-						Description: "TxParam: data should either be a hex string (without 0x) or not specified.",
+						Description: "TxParam: data should either be a hex string (0x optional) or not specified.",
 					},
 					"chain_id": &framework.FieldSchema{
 						Type:        framework.TypeInt,

@@ -168,9 +168,13 @@ func (b *backend) pathGetAddress(ctx context.Context, req *logical.Request, data
 }
 
 func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	rawDataStr := data.Get("raw_data")
+	var rawDataStr string
+	rawDataStr = data.Get("raw_data").(string)
+	if rawDataStr[:2] == "0x" {
+		rawDataStr = rawDataStr[2:]
+	}
 
-	rawDataBytes, decodeErr := hex.DecodeString(rawDataStr.(string))
+	rawDataBytes, decodeErr := hex.DecodeString(rawDataStr)
 	if decodeErr != nil {
 		return logical.ErrorResponse("Unable to decode raw_data string from hex to bytes: " + decodeErr.Error()), decodeErr
 	}
@@ -230,8 +234,11 @@ func (b *backend) pathSignTx(ctx context.Context, req *logical.Request, data *fr
 		amountValue = big.NewInt(int64(amount.(int)))
 	}
 
-	chainID := data.Get("chain_id")
-	txData := data.Get("data")
+	var txData string
+	txData = data.Get("data").(string)
+	if txData[:2] == "0x" {
+		txData = txData[2:]
+	}
 
 	// Build a client to get their private key in hex
 	client, buildClientErr := ClientFromContext(b, ctx, req)
@@ -247,9 +254,9 @@ func (b *backend) pathSignTx(ctx context.Context, req *logical.Request, data *fr
 	var signErr error
 	var signedRLP string
 	signedTx, signedRLP, signErr = SignTxWithHexKey(
-		chainID.(int),
+		data.Get("chain_id").(int),
 		privKeyHex,
-		txData.(string),
+		txData,
 		common.HexToAddress(to.(string)),
 		uint64(nonce.(int)),
 		uint64(gasLimit.(int)),
