@@ -95,7 +95,7 @@ func Backend(c *logical.BackendConfig) *backend {
 					},
 					"amount": &framework.FieldSchema{
 						Type:        framework.TypeInt,
-						Description: "TxParam: if this tx transfers value, amount should be an integer >= 0.  Unit is wei.",
+						Description: "TxParam: if this tx transfers value, amount should be an unsigned 64-bit integer.  Unit is wei.",
 						Default:     0,
 					},
 					"gas_limit": &framework.FieldSchema{
@@ -104,7 +104,7 @@ func Backend(c *logical.BackendConfig) *backend {
 					},
 					"gas_price": &framework.FieldSchema{
 						Type:        framework.TypeInt,
-						Description: "TxParam: gas_price should be a positive integer.",
+						Description: "TxParam: gas_price should be a positive 64-bit integer.",
 					},
 					"data": &framework.FieldSchema{
 						Type:        framework.TypeString,
@@ -117,7 +117,7 @@ func Backend(c *logical.BackendConfig) *backend {
 					},
 					"address_index": &framework.FieldSchema{
 						Type:        framework.TypeInt,
-						Description: "Integer index of which generated address to use.",
+						Description: "Positive integer index of which generated address to use.",
 						Default:     0,
 					},
 				},
