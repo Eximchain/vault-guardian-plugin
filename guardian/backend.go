@@ -43,25 +43,6 @@ func Backend(c *logical.BackendConfig) *backend {
 				},
 			},
 			&framework.Path{
-				Pattern: "sign",
-				Fields: map[string]*framework.FieldSchema{
-					"raw_data": &framework.FieldSchema{
-						Type:        framework.TypeString,
-						Description: "Raw hashed transaction data to sign, do not include the initial 0x.",
-					},
-					"address_index": &framework.FieldSchema{
-						Type:        framework.TypeInt,
-						Description: "Integer index of which generated address to use.",
-						Default:     0,
-					},
-				},
-				Callbacks: map[logical.Operation]framework.OperationFunc{
-					logical.CreateOperation: b.pathSign,
-					logical.UpdateOperation: b.pathSign,
-					logical.ReadOperation:   b.pathGetAddress,
-				},
-			},
-			&framework.Path{
 				Pattern: "authorize",
 				Fields: map[string]*framework.FieldSchema{
 					"secret_id": &framework.FieldSchema{
@@ -80,6 +61,70 @@ func Backend(c *logical.BackendConfig) *backend {
 				Callbacks: map[logical.Operation]framework.OperationFunc{
 					logical.CreateOperation: b.pathAuthorize,
 					logical.UpdateOperation: b.pathAuthorize,
+				},
+			},
+			&framework.Path{
+				Pattern: "sign",
+				Fields: map[string]*framework.FieldSchema{
+					"raw_data": &framework.FieldSchema{
+						Type:        framework.TypeString,
+						Description: "Raw hashed transaction data to sign, 0x is optional.",
+					},
+					"address_index": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "Integer index of which generated address to use.",
+						Default:     0,
+					},
+				},
+				Callbacks: map[logical.Operation]framework.OperationFunc{
+					logical.CreateOperation: b.pathSign,
+					logical.UpdateOperation: b.pathSign,
+					logical.ReadOperation:   b.pathGetAddress,
+				},
+			},
+			&framework.Path{
+				Pattern: "sign-tx",
+				Fields: map[string]*framework.FieldSchema{
+					"nonce": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "TxParam: nonce is an unsigned 64-bit integer",
+					},
+					"to": &framework.FieldSchema{
+						Type:        framework.TypeString,
+						Description: "TxParam: to should be an address, must begin with 0x.",
+					},
+					"amount": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "TxParam: if this tx transfers value, amount should be an unsigned 64-bit integer.  Unit is wei.",
+						Default:     0,
+					},
+					"gas_limit": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "TxParam: gas_limit should be an unsigned 64-bit integer",
+					},
+					"gas_price": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "TxParam: gas_price should be a positive 64-bit integer.",
+					},
+					"data": &framework.FieldSchema{
+						Type:        framework.TypeString,
+						Description: "TxParam: data should either be a hex string (0x optional) or not specified.",
+					},
+					"chain_id": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "Positive integer chainID for your desired network.",
+						Default:     1,
+					},
+					"address_index": &framework.FieldSchema{
+						Type:        framework.TypeInt,
+						Description: "Positive integer index of which generated address to use.",
+						Default:     0,
+					},
+				},
+				Callbacks: map[logical.Operation]framework.OperationFunc{
+					logical.CreateOperation: b.pathSignTx,
+					logical.UpdateOperation: b.pathSignTx,
+					logical.ReadOperation:   b.pathGetAddress,
 				},
 			},
 		}),

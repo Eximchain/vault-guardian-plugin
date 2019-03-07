@@ -2,7 +2,10 @@ package guardian
 
 import (
 	"encoding/hex"
+	"math/big"
 
+	"github.com/eximchain/go-ethereum/common"
+	"github.com/eximchain/go-ethereum/core/types"
 	"github.com/eximchain/go-ethereum/crypto"
 )
 
@@ -29,6 +32,34 @@ func SignWithHexKey(hash []byte, privKeyHex string) (sig []byte, err error) {
 		return nil, signErr
 	}
 	return sig, nil
+}
+
+// SignTxWithHexKey : Accepts arguments to NewTransaction (albeit in a different order), returns a signed RLP-encoded transaction string
+func SignTxWithHexKey(chainID int, privKeyHex, data string, to common.Address, nonce, gasLimit uint64, amount, gasPrice *big.Int) (jsonTx, rlpTx string, err error) {
+	signer := types.NewEIP155Signer(big.NewInt(int64(chainID)))
+	dataBytes, decodeErr := hex.DecodeString(data)
+	if decodeErr != nil {
+		return "", "", decodeErr
+	}
+	tx := types.NewTransaction(nonce, to, amount, gasLimit, gasPrice, dataBytes)
+	privKey, loadErr := crypto.HexToECDSA(privKeyHex)
+	if loadErr != nil {
+		return "", "", loadErr
+	}
+
+	signedTx, signErr := types.SignTx(tx, signer, privKey)
+	if signErr != nil {
+		return "", "", signErr
+	}
+
+	txJSON, jsonErr := signedTx.MarshalJSON()
+	if jsonErr != nil {
+		return "", "", jsonErr
+	}
+
+	rawTxBytes := types.Transactions{signedTx}.GetRlp(0)
+
+	return string(txJSON), "0x" + hex.EncodeToString(rawTxBytes), nil
 }
 
 // AddressFromHexKey : Given a private key as a hex string, return its corresponding hex address

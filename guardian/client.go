@@ -1,10 +1,12 @@
 package guardian
 
 import (
+	"context"
 	"errors"
 	"fmt"
 
 	"github.com/hashicorp/vault/api"
+	"github.com/hashicorp/vault/logical"
 	"github.com/okta/okta-sdk-golang/okta"
 )
 
@@ -16,6 +18,19 @@ import (
 type Client struct {
 	vault *api.Client
 	okta  *okta.Client
+}
+
+// ClientFromContext : Uses the Vault backend, context, and request to build a Client.
+func ClientFromContext(b *backend, ctx context.Context, req *logical.Request) (*Client, error) {
+	cfg, err := b.Config(ctx, req.Storage)
+	if err != nil {
+		return nil, err
+	}
+	client, err := cfg.Client()
+	if err != nil {
+		return nil, err
+	}
+	return client, nil
 }
 
 // ClientFromConfig : Constructor which takes a Config to produce a Client.

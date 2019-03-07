@@ -3,8 +3,9 @@ package guardian
 import (
 	"context"
 	"encoding/hex"
-	"fmt"
+	"math/big"
 
+	"github.com/eximchain/go-ethereum/common"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
@@ -34,19 +35,15 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 	oktaPass := data.Get("okta_password").(string)
 	getAddress := data.Get("get_address").(bool)
 
-	cfg, err := b.Config(ctx, req.Storage)
-	if err != nil {
-		return readConfigErrResp(err), err
-	}
-	client, err := cfg.Client()
-	if err != nil {
-		return makeClientErrResp(err), err
+	client, buildClientErr := ClientFromContext(b, ctx, req)
+	if buildClientErr != nil {
+		return cleanErrResp("Error building client: ", buildClientErr), buildClientErr
 	}
 
 	// Do we have an account for them?
 	newUser, checkErr := client.isNewUser(oktaUser)
 	if checkErr != nil {
-		return cleanErrResp(fmt.Sprintf("User check failed, here's conf: %#v", cfg), checkErr), checkErr
+		return cleanErrResp("Failed to check whether user has registered before: ", checkErr), checkErr
 	}
 	pubAddress := ""
 	if newUser {
@@ -151,21 +148,40 @@ func (b *backend) pathAuthorize(ctx context.Context, req *logical.Request, data 
 	}, nil
 }
 
-func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	rawDataStr := data.Get("raw_data")
+func (b *backend) pathGetAddress(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	client, buildClientErr := ClientFromContext(b, ctx, req)
+	if buildClientErr != nil {
+		return cleanErrResp("Error building client: ", buildClientErr), buildClientErr
+	}
 
-	rawDataBytes, decodeErr := hex.DecodeString(rawDataStr.(string))
+	privKeyHex, readKeyErr := client.readKeyHexByEntityID(req.EntityID)
+	if readKeyErr != nil {
+		return keyFromTokenErrResp(readKeyErr), readKeyErr
+	}
+	pubAddress, getAddressErr := AddressFromHexKey(privKeyHex)
+	if getAddressErr != nil {
+		return logical.ErrorResponse("Fail to derive address from private key: " + getAddressErr.Error()), getAddressErr
+	}
+	return &logical.Response{
+		Data: map[string]interface{}{"public_address": pubAddress},
+	}, nil
+}
+
+func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	var rawDataStr string
+	rawDataStr = data.Get("raw_data").(string)
+	if rawDataStr[:2] == "0x" {
+		rawDataStr = rawDataStr[2:]
+	}
+
+	rawDataBytes, decodeErr := hex.DecodeString(rawDataStr)
 	if decodeErr != nil {
 		return logical.ErrorResponse("Unable to decode raw_data string from hex to bytes: " + decodeErr.Error()), decodeErr
 	}
 
-	cfg, loadCfgErr := b.Config(ctx, req.Storage)
-	if loadCfgErr != nil {
-		return readConfigErrResp(loadCfgErr), loadCfgErr
-	}
-	client, makeClientErr := cfg.Client()
-	if makeClientErr != nil {
-		return makeClientErrResp(makeClientErr), makeClientErr
+	client, buildClientErr := ClientFromContext(b, ctx, req)
+	if buildClientErr != nil {
+		return cleanErrResp("Error building client: ", buildClientErr), buildClientErr
 	}
 
 	privKeyHex, readKeyErr := client.readKeyHexByTokenAccessor(req.ClientTokenAccessor)
@@ -177,10 +193,12 @@ func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *fram
 		return logical.ErrorResponse("Failed to unmarshall key & sign: " + err.Error()), err
 	}
 	sigHex := hex.EncodeToString(sigBytes)
+
 	freshToken, freshTokenErr := client.makeFreshToken(req.ClientTokenAccessor)
 	if freshTokenErr != nil {
 		return cleanErrResp("Unable to create a fresh_client_token after signing: ", freshTokenErr), freshTokenErr
 	}
+
 	return &logical.Response{
 		Data: map[string]interface{}{
 			"signature":          "0x" + sigHex,
@@ -189,24 +207,76 @@ func (b *backend) pathSign(ctx context.Context, req *logical.Request, data *fram
 	}, nil
 }
 
-func (b *backend) pathGetAddress(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
-	cfg, loadCfgErr := b.Config(ctx, req.Storage)
-	if loadCfgErr != nil {
-		return readConfigErrResp(loadCfgErr), loadCfgErr
+func (b *backend) pathSignTx(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	// Prepare args and return string
+	var signedTx string
+
+	// Fetch arguments, validate required ones, nil out ones which don't need to be there
+	nonce, hasNonce := data.GetOk("nonce")
+	to, hasTo := data.GetOk("to")
+	gasLimit, hasGasLimit := data.GetOk("gas_limit")
+	if !hasNonce || !hasTo || !hasGasLimit {
+		return cleanErrResp("Missing required information; please at least supply values for `to`, `nonce`, and `gas_limit`.", nil), nil
 	}
-	client, makeClientErr := cfg.Client()
-	if makeClientErr != nil {
-		return makeClientErrResp(makeClientErr), makeClientErr
+
+	gasPrice, hasGasPrice := data.GetOk("gas_price")
+	amount, hasAmount := data.GetOk("amount")
+	var gasPriceValue *big.Int
+	var amountValue *big.Int
+	if !hasGasPrice {
+		gasPriceValue = nil
+	} else {
+		gasPriceValue = big.NewInt(int64(gasPrice.(int)))
 	}
+	if !hasAmount {
+		amountValue = nil
+	} else {
+		amountValue = big.NewInt(int64(amount.(int)))
+	}
+
+	var txData string
+	txData = data.Get("data").(string)
+	if txData[:2] == "0x" {
+		txData = txData[2:]
+	}
+
+	// Build a client to get their private key in hex
+	client, buildClientErr := ClientFromContext(b, ctx, req)
+	if buildClientErr != nil {
+		return cleanErrResp("Error building client: ", buildClientErr), buildClientErr
+	}
+
 	privKeyHex, readKeyErr := client.readKeyHexByTokenAccessor(req.ClientTokenAccessor)
 	if readKeyErr != nil {
 		return keyFromTokenErrResp(readKeyErr), readKeyErr
 	}
-	pubAddress, getAddressErr := AddressFromHexKey(privKeyHex)
-	if getAddressErr != nil {
-		return logical.ErrorResponse("Fail to derive address from private key: " + getAddressErr.Error()), getAddressErr
+
+	var signErr error
+	var signedRLP string
+	signedTx, signedRLP, signErr = SignTxWithHexKey(
+		data.Get("chain_id").(int),
+		privKeyHex,
+		txData,
+		common.HexToAddress(to.(string)),
+		uint64(nonce.(int)),
+		uint64(gasLimit.(int)),
+		amountValue,
+		gasPriceValue,
+	)
+	if signErr != nil {
+		return cleanErrResp("Unable to build and sign transaction: ", signErr), signErr
 	}
+
+	freshToken, freshTokenErr := client.makeFreshToken(req.ClientTokenAccessor)
+	if freshTokenErr != nil {
+		return cleanErrResp("Unable to create a fresh_client_token after signing: ", freshTokenErr), freshTokenErr
+	}
+
 	return &logical.Response{
-		Data: map[string]interface{}{"public_address": pubAddress},
+		Data: map[string]interface{}{
+			"signed_tx_json":     signedTx,
+			"signed_tx_rlp":      signedRLP,
+			"fresh_client_token": freshToken,
+		},
 	}, nil
 }
