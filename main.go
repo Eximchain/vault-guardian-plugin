@@ -5,11 +5,13 @@ import (
 	"os"
 
 	"github.com/eximchain/vault-guardian-plugin/guardian"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/helper/pluginutil"
 	"github.com/hashicorp/vault/logical/plugin"
 )
 
 func main() {
+	hclog.Default().Info("HCLOG PLUGIN TEST MAIN")
 	log.Println("PLUGIN TEST 1")
 	apiClientMeta := &pluginutil.APIClientMeta{}
 	log.Println("PLUGIN TEST 2")

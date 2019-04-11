@@ -6,6 +6,7 @@ import (
 	"math/big"
 
 	"github.com/eximchain/go-ethereum/common"
+	hclog "github.com/hashicorp/go-hclog"
 	"github.com/hashicorp/vault/logical"
 	"github.com/hashicorp/vault/logical/framework"
 )
@@ -99,6 +100,7 @@ func (b *backend) pathLogin(ctx context.Context, req *logical.Request, data *fra
 }
 
 func (b *backend) pathAuthorize(ctx context.Context, req *logical.Request, data *framework.FieldData) (*logical.Response, error) {
+	hclog.Default().Info("HCLOG PLUGIN TEST AUTHORIZE PATH")
 	secretID, ok := data.GetOk("secret_id")
 	cfg, loadCfgErr := b.Config(ctx, req.Storage)
 	if loadCfgErr != nil {
