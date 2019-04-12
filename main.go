@@ -23,7 +23,6 @@ func main() {
 	hclog.Default().Info("ClientCert:", tlsConfig.ClientCert)
 	hclog.Default().Info("ClientKey:", tlsConfig.ClientKey)
 	hclog.Default().Info("TLSServerName:", tlsConfig.TLSServerName)
-	hclog.Default().Info("Insecure:", tlsConfig.Insecure)
 
 	err := plugin.Serve(&plugin.ServeOpts{
 		BackendFactoryFunc: guardian.Factory,
